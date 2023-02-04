@@ -81,7 +81,6 @@ def main(argv):
     print("# CONTEXT-DATABASE: electricity")
     delta = timedelta(days=1)
     while start_date <= end_date:
-        print(start_date.strftime("%Y-%m-%d"))
         consumption = client.get_energy(customer_id, asset_id, caruna_timespan, start_date.year, start_date.month, start_date.day)
         start_date += delta
         filtered_consumption = [x for x in consumption if 'totalConsumption' in x]
@@ -90,17 +89,15 @@ def main(argv):
             'metering_point':  metering_points[0]['id'],
             'timestamp': (int)(time.mktime(datetime.fromisoformat(item['timestamp']).timetuple())),
             'kwh_total': item['totalConsumption'],
-            'temperature': item['temperature'],
             'timespan': timespan
         }, filtered_consumption))
 
         influx_input = map(
-            lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s,temperature=%s %s"
+            lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s %s"
                 %(
                 item['metering_point'],
                 item['timespan'],
                 item['kwh_total'],
-                item['temperature'],
                 item['timestamp']
                 )
             , mapped_consumption)

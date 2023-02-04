@@ -79,17 +79,15 @@ def main(argv):
         'metering_point':  metering_points[0]['id'],
         'timestamp': (int)(time.mktime(datetime.fromisoformat(item['timestamp']).timetuple())),
         'kwh_total': item['totalConsumption'],
-        'temperature': item['temperature'],
         'timespan': timespan
     }, filtered_consumption))
 
     influx_input = map(
-        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s,temperature=%s %s"
+        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s %s"
             %(
             item['metering_point'],
             item['timespan'],
             item['kwh_total'],
-            item['temperature'],
             item['timestamp']
             )
         , mapped_consumption)
