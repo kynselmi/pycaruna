@@ -18,14 +18,17 @@ def make_max_hour_datetime(date):
     return datetime.combine(date, datetime.max.time()).replace(microsecond=0)
 
 def main(argv):
-    timespan = 'months'
-    opts, args = getopt.getopt(argv,"ht:",["timespan="])
+    timespan = 'hours'
+    dateArg = ''
+    opts, args = getopt.getopt(argv,"ht:d:",["timespan=", "date="])
     for opt, arg in opts:
         if opt == '-h':
             print ('getConsumptionDataAsInfluxImportFile.py -t <hours/days/months>')
             sys.exit()
         elif opt in ("-t", "--timespan"):
             timespan = arg
+        elif opt in ("-d", "--date"):
+            dateArg = arg
     username = os.getenv('CARUNA_USERNAME')
     password = os.getenv('CARUNA_PASSWORD')
     
@@ -67,10 +70,8 @@ def main(argv):
 
     asset_id = metering_points[0]['assetId']
     # Fetch data from midnight 00:00 7 days ago to 23:59 today
-    today = make_max_hour_datetime(date.today())
-    print(today)
-    consumption = client.get_energy(customer_id, asset_id, caruna_timespan, today.year, today.month, today.day)
-    print(consumption)
+    readFromDate = date.today() if not dateArg else datetime.strptime(dateArg, '%d-%m-%y')
+    consumption = client.get_energy(customer_id, asset_id, caruna_timespan, readFromDate.year, readFromDate.month, readFromDate.day)
     filtered_consumption = [x for x in consumption if 'totalConsumption' in x]
     # Extract the relevant data, filter out days without values (usually the most recent datapoint)
     mapped_consumption = list(map(lambda item: {
