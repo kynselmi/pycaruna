@@ -1,0 +1,101 @@
+import getopt
+import os
+
+import os
+from datetime import date, timedelta, datetime
+import sys
+from pycaruna import CarunaPlus, TimeSpan
+import datetime as dt
+
+from pycaruna.authenticator import Authenticator
+
+
+def make_min_hour_datetime(date):
+    return datetime.combine(date, datetime.min.time())
+
+
+def make_max_hour_datetime(date):
+    return datetime.combine(date, datetime.max.time()).replace(microsecond=0)
+
+def main(argv):
+    timespan = 'months'
+    opts, args = getopt.getopt(argv,"ht:",["timespan="])
+    for opt, arg in opts:
+        if opt == '-h':
+            print ('getConsumptionDataAsInfluxImportFile.py -t <hours/days/months>')
+            sys.exit()
+        elif opt in ("-t", "--timespan"):
+            timespan = arg
+    username = os.getenv('CARUNA_USERNAME')
+    password = os.getenv('CARUNA_PASSWORD')
+    
+
+    if username is None or password is None:
+        raise Exception('CARUNA_USERNAME and CARUNA_PASSWORD must be defined')
+
+    authenticator = Authenticator(username, password)
+    login_result = authenticator.login()
+    token = login_result['token']
+    customer_id = login_result['user']['ownCustomerNumbers'][0]
+
+    if token is None or customer_id is None:
+        raise Exception('Token and Customer_id must be defined')
+
+    # Create a Caruna Plus client
+    client = CarunaPlus(token)
+
+    # Get customer details and metering points so we can get the required identifiers
+    customer = client.get_user_profile(customer_id)
+    # print(customer)
+
+    # Get metering points, also known as "assets". Each asset has an "assetId" which is needed e.g. to
+    # retrieve energy consumption information for a metering point type asset.
+    metering_points = client.get_assets(customer_id)
+    # print(metering_points)
+
+    # Get daily usage for the month of January 2023 for the first metering point. Yes, this means TimeSpan.MONTHLY. If
+    # you want hourly usage, use TimeSpan.DAILY.
+    match timespan:
+        case 'hours':
+            caruna_timespan = TimeSpan.DAILY
+        case 'days':
+            caruna_timespan = TimeSpan.MONTHLY
+        case 'months':
+            caruna_timespan = TimeSpan.YEARLY
+        case _:
+            raise Exception('Could not convert command line argument timestamp to Caruna timestamp. Timestamp: '+timespan)
+
+    asset_id = metering_points[0]['assetId']
+    # Fetch data from midnight 00:00 7 days ago to 23:59 today
+    today = make_max_hour_datetime(date.today())
+    print(today)
+    consumption = client.get_energy(customer_id, asset_id, caruna_timespan, today.year, today.month, today.day)
+    print(consumption)
+    filtered_consumption = [x for x in consumption if 'totalConsumption' in x]
+    # Extract the relevant data, filter out days without values (usually the most recent datapoint)
+    mapped_consumption = list(map(lambda item: {
+        'metering_point':  metering_points[0]['id'],
+        'timestamp': item['timestamp'],
+        'kwh_total': item['totalConsumption'],
+        'temperature': item['temperature'],
+        'timespan': timespan
+    }, filtered_consumption))
+
+    influx_input = map(
+        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s kwh_total=%s temperature=%s timespan=%s %s"
+            %(
+            item['metering_point'],
+            item['kwh_total'],
+            item['temperature'],
+            item['timespan'],
+            item['timestamp']
+            )
+        , mapped_consumption)
+
+    print("# DML")
+    print("# CONTEXT-DATABASE: electricity")
+    [print(i) for i in influx_input]
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
+
