@@ -84,7 +84,7 @@ def main(argv):
     }, filtered_consumption))
 
     influx_input = map(
-        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s temperature=%s %s"
+        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s,temperature=%s %s"
             %(
             item['metering_point'],
             item['timespan'],
