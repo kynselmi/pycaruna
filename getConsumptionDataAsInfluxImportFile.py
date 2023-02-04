@@ -2,10 +2,11 @@ import getopt
 import os
 
 import os
-from datetime import date, timedelta, datetime
+from datetime import date, datetime
 import sys
 from pycaruna import CarunaPlus, TimeSpan
 import datetime as dt
+import time
 
 from pycaruna.authenticator import Authenticator
 
@@ -70,25 +71,25 @@ def main(argv):
 
     asset_id = metering_points[0]['assetId']
     # Fetch data from midnight 00:00 7 days ago to 23:59 today
-    readFromDate = date.today() if not dateArg else datetime.strptime(dateArg, '%d-%m-%y')
+    readFromDate = date.today() if not dateArg else datetime.strptime(dateArg, '%d-%m-%Y')
     consumption = client.get_energy(customer_id, asset_id, caruna_timespan, readFromDate.year, readFromDate.month, readFromDate.day)
     filtered_consumption = [x for x in consumption if 'totalConsumption' in x]
     # Extract the relevant data, filter out days without values (usually the most recent datapoint)
     mapped_consumption = list(map(lambda item: {
         'metering_point':  metering_points[0]['id'],
-        'timestamp': item['timestamp'],
+        'timestamp': (int)(time.mktime(datetime.fromisoformat(item['timestamp']).timetuple())),
         'kwh_total': item['totalConsumption'],
         'temperature': item['temperature'],
         'timespan': timespan
     }, filtered_consumption))
 
     influx_input = map(
-        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s kwh_total=%s temperature=%s timespan=%s %s"
+        lambda item: "electricity_consumption,metering_company=Caruna,metering_point=%s,timespan=%s kwh_total=%s temperature=%s %s"
             %(
             item['metering_point'],
+            item['timespan'],
             item['kwh_total'],
             item['temperature'],
-            item['timespan'],
             item['timestamp']
             )
         , mapped_consumption)
