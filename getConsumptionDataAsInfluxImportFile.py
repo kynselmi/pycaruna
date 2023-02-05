@@ -81,7 +81,7 @@ def main(argv):
         if timespan == 'months':
             start_date = start_date.replace(year=start_date.year+1)
         elif timespan == 'days':
-            start_date = start_date.replace(month=start_date.month+1) 
+            start_date = start_date.replace(month=(start_date.month%12)+1, year=start_date.year+1 if (start_date.month%12 == 0) else start_date.year)
         else: 
             start_date += delta
         filtered_consumption = [x for x in consumption if 'totalConsumption' in x]
